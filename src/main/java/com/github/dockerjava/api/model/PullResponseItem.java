@@ -18,6 +18,8 @@ public class PullResponseItem extends ResponseItem {
     private static final String IMAGE_UP_TO_DATE = "Image is up to date";
 
     private static final String DOWNLOAD_COMPLETE = "Download complete";
+    
+    private static final String DOWNLOADED = "downloaded";
 
     /**
      * Returns whether the status indicates a successful pull operation
@@ -31,6 +33,7 @@ public class PullResponseItem extends ResponseItem {
         }
 
         return (getStatus().contains(DOWNLOAD_COMPLETE) || getStatus().contains(IMAGE_UP_TO_DATE)
-                || getStatus().contains(DOWNLOADED_NEWER_IMAGE) || getStatus().contains(LEGACY_REGISTRY));
+                || getStatus().contains(DOWNLOADED_NEWER_IMAGE) || getStatus().contains(LEGACY_REGISTRY)
+                || getStatus().contains(DOWNLOADED));
     }
 }
