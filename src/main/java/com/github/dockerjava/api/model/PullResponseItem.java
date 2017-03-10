@@ -18,7 +18,7 @@ public class PullResponseItem extends ResponseItem {
     private static final String IMAGE_UP_TO_DATE = "Image is up to date";
 
     private static final String DOWNLOAD_COMPLETE = "Download complete";
-    
+
     private static final String DOWNLOADED = "downloaded";
 
     /**
