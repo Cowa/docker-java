@@ -69,21 +69,15 @@ public class StopContainerCmdImplTest extends AbstractDockerClientTest {
         assertThat(inspectContainerResponse.getState().getRunning(), is(equalTo(false)));
 
         final Integer exitCode = inspectContainerResponse.getState().getExitCode();
-        if (apiVersion.equals(VERSION_1_22)) {
-            assertThat(exitCode, is(0));
-        } else {
-            assertThat(exitCode, not(0));
-        }
+        
+        assertThat(exitCode, is(137));
+        
     }
 
-    @Test
+    @Test(expectedExceptions = NotFoundException.class)
     public void testStopNonExistingContainer() throws DockerException {
-        try {
-            dockerClient.stopContainerCmd("non-existing").withTimeout(2).exec();
-            fail("expected NotFoundException");
-        } catch (NotFoundException e) {
 
-        }
+        dockerClient.stopContainerCmd("non-existing").withTimeout(2).exec();
     }
 
 }

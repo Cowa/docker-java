@@ -53,6 +53,12 @@ public class InspectContainerResponse {
     @JsonProperty("HostsPath")
     private String hostsPath;
 
+    /**
+     * @since {@link RemoteApiVersion#VERSION_1_17}
+     */
+    @JsonProperty("LogPath")
+    private String logPath;
+
     @JsonProperty("Id")
     private String id;
 
@@ -106,7 +112,7 @@ public class InspectContainerResponse {
     }
 
     public Integer getSizeRootFs() {
-        return  sizeRootFs;
+        return sizeRootFs;
     }
 
     public String getCreated() {
@@ -166,6 +172,11 @@ public class InspectContainerResponse {
 
     public String getHostsPath() {
         return hostsPath;
+    }
+
+    @CheckForNull
+    public String getLogPath() {
+        return logPath;
     }
 
     public String getName() {
@@ -291,6 +302,13 @@ public class InspectContainerResponse {
         @JsonProperty("FinishedAt")
         private String finishedAt;
 
+
+        /**
+         * @since Docker version 1.12
+         */
+        @JsonProperty("Health")
+        private HealthState health;
+
         /**
          * See {@link #status}
          */
@@ -377,6 +395,10 @@ public class InspectContainerResponse {
         @CheckForNull
         public String getFinishedAt() {
             return finishedAt;
+        }
+
+        public HealthState getHealth() {
+            return health;
         }
 
         @Override

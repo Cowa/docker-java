@@ -18,11 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.slf4j.Logger;
@@ -72,7 +72,7 @@ public class CertificateUtils {
     /**
      * from "cert.pem" String
      */
-    private static List<Certificate> loadCertificates(final String certpem) throws IOException,
+    public static List<Certificate> loadCertificates(final String certpem) throws IOException,
             CertificateException {
         final StringReader certReader = new StringReader(certpem);
         try (BufferedReader reader = new BufferedReader(certReader)) {
@@ -83,12 +83,13 @@ public class CertificateUtils {
     /**
      * "cert.pem" from reader
      */
-    private static List<Certificate> loadCertificates(final Reader reader) throws IOException,
+    public static List<Certificate> loadCertificates(final Reader reader) throws IOException,
             CertificateException {
         try (PEMParser pemParser = new PEMParser(reader)) {
             List<Certificate> certificates = new ArrayList<>();
 
-            JcaX509CertificateConverter certificateConverter = new JcaX509CertificateConverter().setProvider("BC");
+            JcaX509CertificateConverter certificateConverter = new JcaX509CertificateConverter()
+                    .setProvider(BouncyCastleProvider.PROVIDER_NAME);
             Object certObj = pemParser.readObject();
 
             if (certObj instanceof X509CertificateHolder) {
@@ -105,7 +106,7 @@ public class CertificateUtils {
      * Return private key ("key.pem") from Reader
      */
     @CheckForNull
-    private static PrivateKey loadPrivateKey(final Reader reader) throws IOException, NoSuchAlgorithmException,
+    public static PrivateKey loadPrivateKey(final Reader reader) throws IOException, NoSuchAlgorithmException,
             InvalidKeySpecException {
         try (PEMParser pemParser = new PEMParser(reader)) {
             Object readObject = pemParser.readObject();
@@ -138,7 +139,7 @@ public class CertificateUtils {
     }
 
     @CheckForNull
-    private static PrivateKey guessKey(byte[] encodedKey) throws NoSuchAlgorithmException {
+    public static PrivateKey guessKey(byte[] encodedKey) throws NoSuchAlgorithmException {
         //no way to know, so iterate
         for (String guessFactory : new String[]{"RSA", "ECDSA"}) {
             try {
@@ -157,7 +158,7 @@ public class CertificateUtils {
      * Return KeyPair from "key.pem"
      */
     @CheckForNull
-    private static PrivateKey loadPrivateKey(final String keypem) throws IOException, NoSuchAlgorithmException,
+    public static PrivateKey loadPrivateKey(final String keypem) throws IOException, NoSuchAlgorithmException,
             InvalidKeySpecException {
         try (StringReader certReader = new StringReader(keypem);
              BufferedReader reader = new BufferedReader(certReader)) {
@@ -181,14 +182,20 @@ public class CertificateUtils {
     public static KeyStore createTrustStore(final Reader certReader) throws IOException, CertificateException,
             KeyStoreException, NoSuchAlgorithmException {
         try (PEMParser pemParser = new PEMParser(certReader)) {
-            X509CertificateHolder certificateHolder = (X509CertificateHolder) pemParser.readObject();
-            Certificate caCertificate = new JcaX509CertificateConverter()
-                    .setProvider("BC")
-                    .getCertificate(certificateHolder);
 
             KeyStore trustStore = KeyStore.getInstance("JKS");
             trustStore.load(null);
-            trustStore.setCertificateEntry("ca", caCertificate);
+
+            int index = 1;
+            Object pemCert;
+
+            while ((pemCert = pemParser.readObject()) != null) {
+                Certificate caCertificate = new JcaX509CertificateConverter()
+                        .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                        .getCertificate((X509CertificateHolder) pemCert);
+                trustStore.setCertificateEntry("ca-" + index, caCertificate);
+                index++;
+            }
 
             return trustStore;
         }

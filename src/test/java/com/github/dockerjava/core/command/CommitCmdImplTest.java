@@ -8,7 +8,9 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.testinfected.hamcrest.jpa.HasFieldWithValue.hasField;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 
+import com.google.common.collect.ImmutableMap;
 import org.testng.ITestResult;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterTest;
@@ -54,7 +56,7 @@ public class CommitCmdImplTest extends AbstractDockerClientTest {
         assertThat(container.getId(), not(isEmptyString()));
         dockerClient.startContainerCmd(container.getId()).exec();
 
-        LOG.info("Commiting container: {}", container.toString());
+        LOG.info("Committing container: {}", container.toString());
         String imageId = dockerClient.commitCmd(container.getId()).exec();
 
         InspectImageResponse inspectImageResponse = dockerClient.inspectImageCmd(imageId).exec();
@@ -69,12 +71,28 @@ public class CommitCmdImplTest extends AbstractDockerClientTest {
     }
 
     @Test
-    public void commitNonExistingContainer() throws DockerException {
-        try {
-            dockerClient.commitCmd("non-existent").exec();
-            fail("expected NotFoundException");
-        } catch (NotFoundException e) {
-        }
+    public void commitWithLabels() throws DockerException {
+
+        CreateContainerResponse container = dockerClient.createContainerCmd("busybox").withCmd("touch", "/test").exec();
+
+        LOG.info("Created container: {}", container.toString());
+        assertThat(container.getId(), not(isEmptyString()));
+        dockerClient.startContainerCmd(container.getId()).exec();
+
+        LOG.info("Committing container: {}", container.toString());
+        Map<String, String> labels = ImmutableMap.of("label1", "abc", "label2", "123");
+        String imageId = dockerClient.commitCmd(container.getId()).withLabels(labels).exec();
+
+        InspectImageResponse inspectImageResponse = dockerClient.inspectImageCmd(imageId).exec();
+        LOG.info("Image Inspect: {}", inspectImageResponse.toString());
+        Map<String, String> responseLabels = inspectImageResponse.getContainerConfig().getLabels();
+        assertThat(responseLabels.get("label1"), equalTo("abc"));
+        assertThat(responseLabels.get("label2"), equalTo("123"));
     }
 
+    @Test(expectedExceptions = NotFoundException.class)
+    public void commitNonExistingContainer() throws DockerException {
+
+        dockerClient.commitCmd("non-existent").exec();
+    }
 }

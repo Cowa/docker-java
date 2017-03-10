@@ -11,6 +11,7 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
 
 import javax.annotation.CheckForNull;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 
@@ -20,7 +21,8 @@ import java.util.List;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(Include.NON_NULL)
-public class HostConfig {
+public class HostConfig implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private static final List<String> PREDEFINED_NETWORKS = Arrays.asList("bridge", "host", "none");
 
@@ -190,7 +192,13 @@ public class HostConfig {
      * @since {@link RemoteApiVersion#VERSION_1_22}
      */
     @JsonProperty("ShmSize")
-    private String shmSize;
+    private Long shmSize;
+
+    /**
+     * @since ~{@link RemoteApiVersion#VERSION_1_23}
+     */
+    @JsonProperty("PidsLimit")
+    private Long pidsLimit;
 
 
     @JsonIgnore
@@ -401,7 +409,7 @@ public class HostConfig {
      * @see #shmSize
      */
     @CheckForNull
-    public String getShmSize() {
+    public Long getShmSize() {
         return shmSize;
     }
 
@@ -411,6 +419,14 @@ public class HostConfig {
     @CheckForNull
     public String getVolumeDriver() {
         return volumeDriver;
+    }
+
+    /**
+     * @see #pidsLimit
+     */
+    @CheckForNull
+    public Long getPidsLimit() {
+        return pidsLimit;
     }
 
     /**
@@ -764,7 +780,7 @@ public class HostConfig {
     /**
      * @see #shmSize
      */
-    public HostConfig withShmSize(String shmSize) {
+    public HostConfig withShmSize(Long shmSize) {
         this.shmSize = shmSize;
         return this;
     }
@@ -790,6 +806,14 @@ public class HostConfig {
      */
     public HostConfig withVolumesFrom(VolumesFrom[] volumesFrom) {
         this.volumesFrom = volumesFrom;
+        return this;
+    }
+
+    /**
+     * @see #pidsLimit
+     */
+    public HostConfig withPidsLimit(Long pidsLimit) {
+        this.pidsLimit = pidsLimit;
         return this;
     }
     // end of auto-generated

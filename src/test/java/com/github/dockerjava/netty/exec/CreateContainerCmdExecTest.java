@@ -2,6 +2,7 @@ package com.github.dockerjava.netty.exec;
 
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.CreateNetworkResponse;
+import com.github.dockerjava.api.command.CreateVolumeResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.DockerException;
@@ -9,18 +10,22 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.ContainerNetwork;
 import com.github.dockerjava.api.model.Device;
 import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Link;
 import com.github.dockerjava.api.model.LogConfig;
 import com.github.dockerjava.api.model.Network;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.api.model.Ports.Binding;
+import com.github.dockerjava.core.RemoteApiVersion;
 import com.github.dockerjava.api.model.RestartPolicy;
 import com.github.dockerjava.api.model.Ulimit;
 import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.api.model.VolumesFrom;
 import com.github.dockerjava.netty.AbstractNettyDockerClientTest;
 
+import org.apache.commons.io.FileUtils;
 import org.testng.ITestResult;
+import org.testng.SkipException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
@@ -31,13 +36,13 @@ import org.testng.internal.junit.ArrayAsserts;
 import java.lang.reflect.Method;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 import static com.github.dockerjava.api.model.Capability.MKNOD;
 import static com.github.dockerjava.api.model.Capability.NET_ADMIN;
+import static com.github.dockerjava.utils.TestUtils.getVersion;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -136,6 +141,39 @@ public class CreateContainerCmdExecTest extends AbstractNettyDockerClientTest {
         // assertFalse(inspectContainerResponse.getMounts().get(0).getRW());
     }
 
+    @Test
+    public void createContainerWithNoCopyVolumes() throws DockerException {
+        final RemoteApiVersion apiVersion = getVersion(dockerClient);
+        
+        if (!apiVersion.isGreaterOrEqual(RemoteApiVersion.VERSION_1_23)) {
+            throw new SkipException("API version should be >= 1.23");
+        }
+        
+    	Volume volume1 = new Volume("/opt/webapp1");
+    	String container1Name = UUID.randomUUID().toString();
+    	
+    	CreateVolumeResponse volumeResponse = dockerClient.createVolumeCmd().withName("webapp1").exec();
+    	assertThat(volumeResponse.getName(), equalTo("webapp1"));
+        assertThat(volumeResponse.getDriver(), equalTo("local"));
+        assertThat(volumeResponse.getMountpoint(), containsString("/webapp1/"));
+    	
+    	Bind bind1 = new Bind("webapp1", volume1, true);
+    	
+    	CreateContainerResponse container1 = dockerClient.createContainerCmd("busybox").withCmd("sleep", "9999")
+                .withName(container1Name)
+                .withBinds(bind1).exec();
+        LOG.info("Created container1 {}", container1.toString());
+        
+        InspectContainerResponse inspectContainerResponse1 = dockerClient.inspectContainerCmd(container1.getId()).exec();
+        
+        assertThat(Arrays.asList(inspectContainerResponse1.getHostConfig().getBinds()), contains(bind1));
+        assertThat(inspectContainerResponse1, mountedVolumes(contains(volume1)));
+        
+        assertThat(inspectContainerResponse1.getMounts().get(0).getDestination(), equalTo(volume1));
+        assertThat(inspectContainerResponse1.getMounts().get(0).getMode(), equalTo("rw,nocopy"));
+        assertThat(inspectContainerResponse1.getMounts().get(0).getRW(), equalTo(true));
+    }
+    
     @Test
     public void createContainerWithVolumesFrom() throws DockerException {
 
@@ -368,7 +406,7 @@ public class CreateContainerCmdExecTest extends AbstractNettyDockerClientTest {
                 .exec();
 
         ContainerNetwork aliasNet = inspectContainerResponse.getNetworkSettings().getNetworks().get("aliasNet");
-        assertEquals(aliasNet.getAliases(), Collections.singletonList("server"));
+        assertThat(aliasNet.getAliases(), hasItem("server"));
     }
 
     @Test
@@ -675,5 +713,43 @@ public class CreateContainerCmdExecTest extends AbstractNettyDockerClientTest {
         InspectContainerResponse inspectContainer = dockerClient.inspectContainerCmd(container.getId()).exec();
 
         assertThat(inspectContainer.getHostConfig().getCgroupParent(), is("/parent"));
+    }
+
+    @SuppressWarnings("Duplicates")
+    @Test
+    public void createContainerWithShmSize() throws DockerException {
+        HostConfig hostConfig = new HostConfig().withShmSize(96 * FileUtils.ONE_MB);
+        CreateContainerResponse container = dockerClient.createContainerCmd(BUSYBOX_IMAGE)
+            .withHostConfig(hostConfig).withCmd("true").exec();
+
+        LOG.info("Created container {}", container.toString());
+
+        assertThat(container.getId(), not(isEmptyString()));
+
+        InspectContainerResponse inspectContainerResponse = dockerClient.inspectContainerCmd(container.getId()).exec();
+
+        assertThat(inspectContainerResponse.getHostConfig().getShmSize(), is(hostConfig.getShmSize()));
+    }
+
+    @SuppressWarnings("Duplicates")
+    @Test
+    public void createContainerWithShmPidsLimit() throws DockerException {
+        final RemoteApiVersion apiVersion = getVersion(dockerClient);
+
+        if (!apiVersion.isGreaterOrEqual(RemoteApiVersion.VERSION_1_23)) {
+            throw new SkipException("API version should be >= 1.23");
+        }
+
+        HostConfig hostConfig = new HostConfig().withPidsLimit(2L);
+        CreateContainerResponse container = dockerClient.createContainerCmd(BUSYBOX_IMAGE)
+            .withHostConfig(hostConfig).withCmd("true").exec();
+
+        LOG.info("Created container {}", container.toString());
+
+        assertThat(container.getId(), not(isEmptyString()));
+
+        InspectContainerResponse inspectContainerResponse = dockerClient.inspectContainerCmd(container.getId()).exec();
+
+        assertThat(inspectContainerResponse.getHostConfig().getPidsLimit(), is(hostConfig.getPidsLimit()));
     }
 }

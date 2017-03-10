@@ -10,7 +10,7 @@
 	<groupId>com.github.docker-java</groupId>
 	<artifactId>docker-java</artifactId>
 	<packaging>jar</packaging>
-	<version>3.0.1-SNAPSHOT</version>
+	<version>3.0.9-SNAPSHOT</version>
 
 	<name>docker-java</name>
 	<url>https://github.com/docker-java/docker-java</url>
@@ -32,6 +32,16 @@
 	</scm>
 
 	<developers>
+		<developer>
+			<id>marcuslinke</id>
+			<name>Marcus Linke</name>
+			<email>marcus.linke@gmx.de</email>
+		</developer>
+		<developer>
+			<id>kostyasha</id>
+			<name>Kanstantsin Shautsou</name>
+			<email>kanstantsin.sha@gmail.com</email>
+		</developer>
 		<developer>
 			<id>kpelykh</id>
 			<name>Konstantin Pelykh</name>
@@ -57,7 +67,7 @@
 		<slf4j-api.version>1.7.21</slf4j-api.version>
 
 		<bouncycastle.version>1.54</bouncycastle.version>
-		<unix-socket-factory.version>2015-01-27T15-02-14</unix-socket-factory.version>
+		<junixsocket.version>2.0.4</junixsocket.version>
 		<guava.version>19.0</guava.version>
 
 		<!-- test dependencies -->
@@ -105,11 +115,15 @@
 			<version>${jersey.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>de.gesellix</groupId>
-			<artifactId>unix-socket-factory</artifactId>
-			<version>${unix-socket-factory.version}</version>
+			<groupId>com.kohlschutter.junixsocket</groupId>
+			<artifactId>junixsocket-common</artifactId>
+			<version>${junixsocket.version}</version>
 		</dependency>
-
+		<dependency>
+			<groupId>com.kohlschutter.junixsocket</groupId>
+			<artifactId>junixsocket-native-common</artifactId>
+			<version>${junixsocket.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-compress</artifactId>
@@ -256,13 +270,6 @@
 	</distributionManagement>
 
 	<build>
-<!-- 		<extensions> -->
-<!-- 			<extension> -->
-<!-- 				<groupId>kr.motd.maven</groupId> -->
-<!-- 				<artifactId>os-maven-plugin</artifactId> -->
-<!-- 				<version>1.2.3.Final</version> -->
-<!-- 			</extension> -->
-<!-- 		</extensions> -->
 		<pluginManagement>
 			<plugins>
 
@@ -352,6 +359,9 @@
 							<goals>
 								<goal>jar</goal>
 							</goals>
+							<configuration>
+								<additionalparam>-Xdoclint:none</additionalparam>
+							</configuration>
 						</execution>
 					</executions>
 				</plugin>
@@ -387,6 +397,7 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>${maven-surefire-plugin.version}</version>
 				<configuration>
+					<rerunFailingTestsCount>3</rerunFailingTestsCount>
 					<excludedGroups>integration,integration-auth</excludedGroups>
 				</configuration>
 			</plugin>
@@ -402,11 +413,12 @@
 							<goal>verify</goal>
 						</goals>
 						<configuration>
+							<rerunFailingTestsCount>3</rerunFailingTestsCount>
 							<useUnlimitedThreads>true</useUnlimitedThreads>
 							<perCoreThreadCount>true</perCoreThreadCount>
 							<threadCount>1</threadCount>
 							<groups>integration</groups>
- 							<excludedGroups>integration-auth</excludedGroups>
+							<excludedGroups>integration-auth</excludedGroups>
 							<includes>
 								<include>**/*Test.java</include>
 							</includes>
@@ -470,7 +482,8 @@
 							<failOnViolation>true</failOnViolation>
 							<logViolationsToConsole>true</logViolationsToConsole>
 							<linkXRef>false</linkXRef>
-							<!-- if some IDE has integration and requires other place, propose it -->
+							<!-- if some IDE has integration and requires other place, propose 
+								it -->
 							<configLocation>
 								src/test/resources/checkstyle/checkstyle-config.xml
 							</configLocation>
@@ -505,11 +518,26 @@
 									<goal>prepare-agent</goal>
 								</goals>
 							</execution>
+
 							<execution>
-								<id>report</id>
+								<id>post-unit-test</id>
 								<phase>test</phase>
 								<goals>
 									<goal>report</goal>
+								</goals>
+							</execution>
+
+							<execution>
+								<id>pre-integration-test</id>
+								<phase>pre-integration-test</phase>
+								<goals>
+									<goal>prepare-agent-integration</goal>
+								</goals>
+							</execution>
+							<execution>
+								<id>report-integration</id>
+								<goals>
+									<goal>report-integration</goal>
 								</goals>
 							</execution>
 						</executions>
